@@ -1,0 +1,34 @@
+name: Market Board
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-board
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: vars.MARKET_BOARD_MESSAGE_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: false
+      - name: Update board
+        run: uv run --frozen --no-dev discord-market-board --once
+        env:
+          MARKET_BOARD_WEBHOOK_URL: ${{ secrets.MARKET_BOARD_WEBHOOK_URL }}
+          MARKET_BOARD_COINGECKO_API_KEY: ${{ secrets.MARKET_BOARD_COINGECKO_API_KEY }}
+          MARKET_BOARD_MESSAGE_ID: ${{ vars.MARKET_BOARD_MESSAGE_ID }}
+          MARKET_BOARD_COINS: ${{ vars.MARKET_BOARD_COINS || 'bitcoin,ethereum,solana' }}
+          MARKET_BOARD_INTERVAL: "600"

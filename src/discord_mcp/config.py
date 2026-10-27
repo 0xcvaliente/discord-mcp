@@ -66,6 +66,10 @@ class MarketBoardSettings(BaseSettings):
         default=".market_board_state.json",
         description="File storing the board message id so restarts edit the same message",
     )
+    message_id: str = Field(
+        default="",
+        description="Board message to edit; when set the state file is not used (stateless runners)",
+    )
     coingecko_api_key: str = Field(default="", description="Optional CoinGecko Demo API key")
 
 

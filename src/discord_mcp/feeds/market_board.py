@@ -128,7 +128,11 @@ def save_message_id(state_path: Path, message_id: str) -> None:
 
 
 def publish(
-    client: httpx.Client, webhook_url: str, embed: dict[str, Any], message_id: str | None
+    client: httpx.Client,
+    webhook_url: str,
+    embed: dict[str, Any],
+    message_id: str | None,
+    repost_if_missing: bool = True,
 ) -> str:
     payload = {"embeds": [embed]}
 
@@ -137,6 +141,16 @@ def publish(
         if response.status_code != 404:
             response.raise_for_status()
             return message_id
+        if not repost_if_missing:
+            logger.error(
+                "board_message_missing",
+                message_id=message_id,
+                hint=(
+                    "The board message or webhook was deleted; update MARKET_BOARD_MESSAGE_ID "
+                    "and the webhook secret"
+                ),
+            )
+            response.raise_for_status()
         logger.info("board_message_missing_reposting", message_id=message_id)
 
     response = client.post(
@@ -152,9 +166,14 @@ def run_once(client: httpx.Client, config: MarketBoardSettings) -> str:
     fear_greed = fetch_fear_greed(client)
     embed = build_embed(markets, fear_greed, config.interval, datetime.now(UTC))
 
-    state_path = Path(config.state_file)
-    message_id = publish(client, config.webhook_url, embed, load_message_id(state_path))
-    save_message_id(state_path, message_id)
+    if config.message_id:
+        message_id = publish(
+            client, config.webhook_url, embed, config.message_id, repost_if_missing=False
+        )
+    else:
+        state_path = Path(config.state_file)
+        message_id = publish(client, config.webhook_url, embed, load_message_id(state_path))
+        save_message_id(state_path, message_id)
 
     logger.info("board_updated", message_id=message_id, coins=len(markets))
     return message_id
@@ -167,6 +186,9 @@ def update_board(client: httpx.Client, config: MarketBoardSettings) -> bool:
     except httpx.HTTPStatusError as e:
         # The default message includes the request URL, which for webhooks contains the token
         logger.error("board_update_failed", status=e.response.status_code, host=e.request.url.host)
+    except httpx.InvalidURL as e:
+        # Not an HTTPError, and its message can contain the webhook URL
+        logger.error("board_update_failed", error_type=type(e).__name__)
     except (httpx.HTTPError, KeyError, ValueError) as e:
         logger.error("board_update_failed", error=str(e))
     return False

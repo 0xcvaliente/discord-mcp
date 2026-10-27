@@ -89,6 +89,30 @@ uv run discord-market-board --once   # single update, e.g. from cron
 The board message id is stored in `MARKET_BOARD_STATE_FILE`, so restarts edit the same message.
 If the message is deleted, a new one is posted.
 
+## Run on GitHub Actions
+
+`.github/workflows/market-board.yml` updates the board every 10 minutes without a server. It is
+stateless, so it edits the message named by `MARKET_BOARD_MESSAGE_ID` instead of using the state
+file. The webhook URL contains its token, so keep it in a secret and never in the repo.
+
+- Secret `MARKET_BOARD_WEBHOOK_URL` (required).
+- Secret `MARKET_BOARD_COINGECKO_API_KEY` (optional): a free CoinGecko Demo key. Shared runner
+  IPs can get rate limited without one.
+- Variable `MARKET_BOARD_MESSAGE_ID`: id of the existing board message. The workflow only runs
+  when it is set.
+- Variable `MARKET_BOARD_COINS` (optional): comma-separated CoinGecko coin ids.
+
+Notes:
+
+- Scheduled workflows run from the default branch only.
+- Forks have scheduled workflows disabled until enabled in the Actions tab.
+- GitHub may delay or drop scheduled runs.
+- Public repos auto-disable schedules after 60 days without repo activity.
+
+If the board message is deleted, the run fails instead of reposting. To fix it, run
+`uv run discord-market-board --once` locally without `MARKET_BOARD_MESSAGE_ID` to post a new
+message, then set the variable to its id (the `message_id` in `.market_board_state.json`).
+
 ---
 
 # MCP Client Configuration Example

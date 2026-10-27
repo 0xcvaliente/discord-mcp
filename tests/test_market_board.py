@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 
 from discord_mcp.config import MarketBoardSettings
 from discord_mcp.feeds.market_board import (
@@ -12,6 +13,7 @@ from discord_mcp.feeds.market_board import (
     format_market_cap,
     format_price,
     publish,
+    run_once,
     update_board,
 )
 
@@ -127,3 +129,62 @@ def test_update_board_reports_failure_without_raising(tmp_path):
         assert update_board(client, config) is False
 
     assert not (tmp_path / "state.json").exists()
+
+
+def test_publish_without_repost_raises_on_missing_message():
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(404, json={"message": "Unknown Message"})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(httpx.HTTPStatusError):
+            publish(client, WEBHOOK_URL, {"title": "board"}, "42", repost_if_missing=False)
+
+    assert [r.method for r in requests] == ["PATCH"]
+
+
+def test_run_once_with_message_id_edits_it_and_skips_state_file(tmp_path):
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.host == "api.coingecko.com":
+            return httpx.Response(200, json=[_coin("bitcoin", "btc", 80712, 1.0)])
+        if request.url.host == "api.alternative.me":
+            return httpx.Response(
+                200, json={"data": [{"value": "48", "value_classification": "Neutral"}]}
+            )
+        return httpx.Response(200, json={"id": "777"})
+
+    config = MarketBoardSettings(
+        webhook_url=WEBHOOK_URL,
+        coins="bitcoin",
+        message_id="777",
+        state_file=str(tmp_path / "state.json"),
+    )
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        assert run_once(client, config) == "777"
+
+    webhook_requests = [r for r in requests if r.url.host == "discord.com"]
+    assert [(r.method, r.url.path) for r in webhook_requests] == [
+        ("PATCH", "/api/webhooks/1/token/messages/777")
+    ]
+    assert not (tmp_path / "state.json").exists()
+
+
+def test_update_board_handles_invalid_webhook_url(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.coingecko.com":
+            return httpx.Response(200, json=[_coin("bitcoin", "btc", 80712, 1.0)])
+        return httpx.Response(200, json={"data": []})
+
+    config = MarketBoardSettings(
+        webhook_url="http://[::1/x",
+        coins="bitcoin",
+        message_id="1",
+        state_file=str(tmp_path / "state.json"),
+    )
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        assert update_board(client, config) is False
