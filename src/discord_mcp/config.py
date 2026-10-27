@@ -48,11 +48,33 @@ class EventStreamSettings(BaseSettings):
     timeout: int = Field(default=30, description="Event stream timeout in seconds")
 
 
+class MarketBoardSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="MARKET_BOARD_",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    webhook_url: str = Field(default="", description="Discord webhook URL the board posts to")
+    coins: str = Field(
+        default="bitcoin,ethereum,solana", description="Comma-separated CoinGecko coin ids"
+    )
+    interval: int = Field(default=300, description="Seconds between board updates")
+    state_file: str = Field(
+        default=".market_board_state.json",
+        description="File storing the board message id so restarts edit the same message",
+    )
+    coingecko_api_key: str = Field(default="", description="Optional CoinGecko Demo API key")
+
+
 class Settings:
     def __init__(self):
         self.mcp = MCPSettings()
         self.discord = DiscordSettings()
         self.event_stream = EventStreamSettings()
+        self.market_board = MarketBoardSettings()
 
     @property
     def project_root(self) -> Path:

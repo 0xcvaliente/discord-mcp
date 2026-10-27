@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 discord-mcp = "discord_mcp.main:main"
+discord-market-board = "discord_mcp.feeds.market_board:main"
 
 [dependency-groups]
 dev = [

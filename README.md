@@ -70,6 +70,27 @@ uv run --with git+https://github.com/ExilProductions/discord-mcp discord-mcp
 
 ---
 
+# Market Board
+
+A standalone worker that keeps one message in a channel updated with live crypto prices
+(CoinGecko) and the Fear & Greed Index (alternative.me). It posts through a channel webhook,
+so it runs without the MCP server or a bot token.
+
+1. Create a webhook in the target channel (e.g. with the `create_channel_webhook` tool) and set
+   `MARKET_BOARD_WEBHOOK_URL` in `.env`.
+2. Optionally set `MARKET_BOARD_COINS` (CoinGecko coin ids) and `MARKET_BOARD_INTERVAL` (seconds).
+3. Run it:
+
+```bash
+uv run discord-market-board          # update every interval
+uv run discord-market-board --once   # single update, e.g. from cron
+```
+
+The board message id is stored in `MARKET_BOARD_STATE_FILE`, so restarts edit the same message.
+If the message is deleted, a new one is posted.
+
+---
+
 # MCP Client Configuration Example
 
 Example configuration for **OpenCode** using a remote MCP server:
