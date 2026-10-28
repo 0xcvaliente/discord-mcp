@@ -2,7 +2,8 @@ name: Market Board
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Off the top of the hour, when GitHub delays scheduled runs most
+    - cron: "7-59/10 * * * *"
   workflow_dispatch:
 
 permissions:
